@@ -1,0 +1,19 @@
+# Core FastAPI stack
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+
+# LangGraph and LangChain
+langgraph
+langchain
+langchain-core
+
+# HTTP client
+httpx
+
+# Gemini API (Google Generative AI)
+google-generativeai
+
+# WebSocket support (included in uvicorn[standard] but explicit for clarity)
+websockets
