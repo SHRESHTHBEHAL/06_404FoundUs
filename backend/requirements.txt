@@ -8,6 +8,7 @@ python-dotenv
 langgraph
 langchain
 langchain-core
+langchain-community
 
 # HTTP client
 httpx
