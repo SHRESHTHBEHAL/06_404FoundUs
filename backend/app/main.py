@@ -9,7 +9,7 @@ import time
 import uuid
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -220,13 +220,15 @@ async def run_graph_background(session_id: str, request_id: str):
             if current_intent in [Intent.FLIGHT, Intent.COMBINED]:
                 # Show flights
                 if session.shared_state.flight_results:
+                    print(f"[WebSocket] Sending {len(session.shared_state.flight_results)} flight results")
                     await manager.send_json(session_id, {
                         "type": "flight_results",
                         "results": [f.model_dump() for f in session.shared_state.flight_results],
                         "session_id": session_id
                     })
-            elif current_intent == Intent.HOTEL:
-                # Explicitly hide flights when switching to hotel view
+            else:
+                # Explicitly hide flights when NOT in flight/combined intent
+                print(f"[WebSocket] Clearing flight results (intent={current_intent.value})")
                 await manager.send_json(session_id, {
                     "type": "flight_results",
                     "results": [],
@@ -237,13 +239,15 @@ async def run_graph_background(session_id: str, request_id: str):
             if current_intent in [Intent.HOTEL, Intent.COMBINED]:
                 # Show hotels
                 if session.shared_state.hotel_results:
+                    print(f"[WebSocket] Sending {len(session.shared_state.hotel_results)} hotel results")
                     await manager.send_json(session_id, {
                         "type": "hotel_results",
                         "results": [h.model_dump() for h in session.shared_state.hotel_results],
                         "session_id": session_id
                     })
-            elif current_intent == Intent.FLIGHT:
-                # Explicitly hide hotels when switching to flight view
+            else:
+                # Explicitly hide hotels when NOT in hotel/combined intent
+                print(f"[WebSocket] Clearing hotel results (intent={current_intent.value})")
                 await manager.send_json(session_id, {
                     "type": "hotel_results",
                     "results": [],
@@ -687,3 +691,35 @@ async def complete_booking(session_id: str, booking: BookingRequest):
         "booking_reference": booking_ref,
         "itinerary_html": itinerary_html
     }
+
+
+@app.post("/transcribe")
+async def transcribe_audio_endpoint(file: UploadFile = File(...)):
+    """
+    Transcribe uploaded audio file using Gemini.
+    """
+    print(f"[Transcribe] Received audio file: {file.filename}, content_type: {file.content_type}")
+    try:
+        contents = await file.read()
+        print(f"[Transcribe] Read {len(contents)} bytes")
+        
+        # Import llm module
+        from . import llm
+        
+        transcript = llm.transcribe_audio(contents)
+        print(f"[Transcribe] Result: {transcript[:100]}...")
+        
+        if transcript.startswith("Error"):
+            raise HTTPException(status_code=500, detail=transcript)
+            
+        return {"text": transcript}
+    except Exception as e:
+        print(f"[Transcribe] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

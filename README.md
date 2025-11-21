@@ -2,13 +2,6 @@
 
 A sophisticated, production-ready AI-powered travel planning application that uses multi-agent architecture with LangGraph to provide intelligent flight and hotel booking assistance. Features real-time WebSocket communication, multi-leg flight support, and a beautiful dark/light mode interface.
 
-![React](https://img.shields.io/badge/React-19.2.0-61DAFB?logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178C6?logo=typescript)
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-Latest-009688?logo=fastapi)
-![LangGraph](https://img.shields.io/badge/LangGraph-Latest-FF6B6B)
-![Google Gemini](https://img.shields.io/badge/Gemini-2.5--flash-4285F4?logo=google)
-
 ## ✨ Features
 
 ### 🤖 Intelligent Multi-Agent System
@@ -16,6 +9,7 @@ A sophisticated, production-ready AI-powered travel planning application that us
 - **Multi-Agent Architecture**: Built with LangGraph for stateful, graph-based workflows
 - **Context-Aware Responses**: Maintains conversation history and user preferences
 - **Real-time Communication**: WebSocket-based bidirectional streaming
+- **Voice Interface**: Speech-to-Text input and Text-to-Speech responses for hands-free interaction
 
 ### ✈️ Advanced Flight Search
 - **Multi-Leg Flight Support**: Handle complex itineraries (e.g., NYC → London → Paris → NYC)
@@ -44,27 +38,337 @@ A sophisticated, production-ready AI-powered travel planning application that us
 - **Passenger/Guest Information**: Comprehensive data collection
 - **Payment Integration**: Mock payment processing (ready for real integration)
 
-## 🏗️ Architecture
+## 🏗️ Architecture Overview
 
-### Backend Architecture
+### Multi-Agent System Architecture
+
 ```
-FastAPI Application
-├── Multi-Agent System (LangGraph)
-│   ├── Intent Classification (Gemini)
-│   ├── Flight Search Agent
-│   ├── Hotel Search Agent
-│   ├── Booking Agent
-│   └── Summarization Agent
-├── WebSocket Manager (Real-time Communication)
-├── Event Manager (Server-Sent Events)
-├── Services
-│   ├── Booking Service (Itinerary Generation)
-│   ├── Preferences Manager
-│   └── Summarization Service
-└── Mock Data Providers
-    ├── Flight Generator (Multi-leg Support)
-    └── Hotel Generator
+┌─────────────────────────────────────────────────────────────────┐
+│                      USER INTERFACE                             │
+│                    (React + TypeScript)                         │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │ HTTP/WebSocket
+┌─────────────────────────▼───────────────────────────────────────┐
+│                   FASTAPI BACKEND                               │
+│  ┌─────────────────┐  ┌─────────────────────────────────────┐  │
+│  │   WebSocket     │  │          HTTP Endpoints            │  │
+│  │   Manager       │  │                                     │  │
+│  └─────────────────┘  └─────────────────────────────────────┘  │
+└─────────────┬─────────────────────────┬─────────────────────────┘
+              │                         │
+              │                         │
+┌─────────────▼─────┐        ┌──────────▼─────────────────────┐
+│  LangGraph Graph  │        │        Services Layer          │
+│                   │        │  ┌────────────────────────────┐ │
+│  Coordinator      │        │  │ Booking Service            │ │
+│  Agent            │◄───────┤  │ Preferences Manager         │ │
+│  (Intent Route)   │        │  │ Event Manager              │ │
+│                   │        │  │ Summarization Service      │ │
+│  Flight Agent ────┼────────┼─►│ Travel Mock Data          │ │
+│  Hotel Agent  ────┼────────┼─►│ - Mock Flights             │ │
+│  Response Agent ◄─┼────────┼─►│ - Mock Hotels              │ │
+│                   │        │  └────────────────────────────┘ │
+│  State Management │        └─────────────────────────────────┘
+│  (SharedState)    │
+└───────────────────┘
 ```
+
+### Agent Interactions and Data Flow
+
+**1. Coordinator Agent** - The Master Router
+- **Responsibilities**: Intent classification, parameter extraction, preference learning
+- **Inputs**: User messages, conversation history, learned preferences  
+- **Outputs**: Intent classification, flight/hotel search parameters
+- **Agent Flow**: 
+  ```
+  User Message → LLM Classification → Parameter Extraction → Route Decision
+                              ↓
+              ┌─────────────────────────────────────┐
+              │          Routing Logic              │
+              ├─────────────────────────────────────┤
+              │ FLIGHT → Flight Agent               │
+              │ HOTEL  → Hotel Agent                │  
+              │ BOTH   → Flight → Hotel → Response  │
+              │ OTHER  → Response Agent             │
+              └─────────────────────────────────────┘
+  ```
+
+**2. Flight Agent** - Flight Search Specialist
+- **Responsibilities**: Multi-leg flight search, price comparison, route optimization
+- **Inputs**: FlightSearchParams (origin, destination, dates, passengers, cabin class)
+- **Outputs**: FlightResult objects with segments, layovers, pricing
+- **Data Sources**: Mock flight generator + Tavily web search (with fallback)
+
+**3. Hotel Agent** - Hotel Search Specialist  
+- **Responsibilities**: Location-based hotel search, amenity filtering, pricing
+- **Inputs**: HotelSearchParams (city, dates, guests, budget, rating)
+- **Outputs**: HotelResult objects with amenities, pricing, location data
+- **Data Sources**: Mock hotel generator + Tavily web search (with fallback)
+
+**4. Response Agent** - Natural Language Generator
+- **Responsibilities**: Context-aware response generation, conversation flow management
+- **Inputs**: Flight/hotel results, user intent, conversation context
+- **Outputs**: Natural language responses, conversation history updates
+
+### State Management Architecture
+
+**LangGraph SharedState Pattern**:
+```
+SharedState {
+  session_id: str,
+  conversation_history: [ConversationTurn],
+  user_preferences: UserPreferences,
+  current_intent: Intent,
+  flight_params: FlightSearchParams | None,
+  hotel_params: HotelSearchParams | None,  
+  flight_results: [FlightResult],
+  hotel_results: [HotelResult],
+  selected_flight_id: str | None,
+  selected_hotel_id: str | None,
+  is_interrupted: bool,
+  current_run_id: str | None,
+  pending_flight_booking: str | None,
+  pending_hotel_booking: str | None
+}
+```
+
+**Context Transfer Mechanism**:
+- **Conversation Compression**: Older messages summarized for memory efficiency
+- **Preference Persistence**: User preferences learned and stored across sessions  
+- **Selection Preservation**: Bookings and selections maintained during interruptions
+- **State Synchronization**: WebSocket real-time state updates to frontend
+
+## 🤖 Agent Design
+
+### Agent Capabilities and Inputs/Outputs
+
+#### Coordinator Agent (Master Router)
+- **Primary Function**: Intent classification and request routing
+- **Inputs**: 
+  - User message text
+  - Last 5 conversation turns (context window)
+  - Current user preferences
+  - Session metadata
+- **Processing**: 
+  - Gemini LLM classifies intent (FLIGHT/HOTEL/COMBINED/OTHER)
+  - Extracts search parameters from natural language
+  - Learns user preferences from conversation
+  - Determines optimal agent routing
+- **Outputs**:
+  - Intent classification (Intent enum)
+  - FlightSearchParams or HotelSearchParams objects
+  - Updated user preferences
+  - Routing decision for LangGraph workflow
+
+#### Flight Agent (Flight Search Specialist)
+- **Primary Function**: Multi-leg flight search and price comparison
+- **Inputs**:
+  - FlightSearchParams: origin, destination, depart_date, return_date, passengers, cabin_class, max_stops
+  - User preferences (preferred airlines, flight times, etc.)
+- **Processing**:
+  - Tavily web search with fallback to mock data
+  - Multi-leg flight generation with realistic layovers
+  - Price calculation and filtering
+  - Airport coordinate mapping
+- **Outputs**:
+  - FlightResult[] with segments, layovers, total journey duration
+  - Source tracking (live web search vs mock data)
+  - Partial results flag for interruption handling
+
+#### Hotel Agent (Hotel Search Specialist)
+- **Primary Function**: Location-based hotel search with amenity filtering
+- **Inputs**:
+  - HotelSearchParams: city, check_in, check_out, guests, budget, min_rating
+  - Current flight destination (auto-derivation)
+- **Processing**:
+  - Tavily web search with fallback to mock data
+  - Hotel amenity filtering and rating assessment
+  - Price per night calculation
+  - Location coordinate mapping
+- **Outputs**:
+  - HotelResult[] with amenities, pricing, location data
+  - Source tracking and partial results flag
+
+#### Response Agent (Natural Language Generator)
+- **Primary Function**: Context-aware response generation
+- **Inputs**:
+  - FlightResults[] and/or HotelResults[]
+  - Current user intent
+  - Conversation context and history
+  - User selections and pending bookings
+- **Processing**:
+  - Gemini streaming response generation
+  - Context-aware response formatting
+  - Selection validation and confirmation prompts
+- **Outputs**:
+  - Natural language response text
+  - Updated conversation history
+  - Streaming tokens for real-time display
+
+### LangGraph Coordination Workflows
+
+#### Standard Workflow Triggers
+
+**1. Flight Search Workflow**:
+```
+User: "Find flights from NYC to London"
+↓
+Coordinator: Intent=FLIGHT, extract params
+↓
+Flight Agent: Search flights, generate results
+↓
+Response Agent: Format and present results
+```
+
+**2. Hotel Search Workflow**:
+```
+User: "Hotels in Tokyo"  
+↓
+Coordinator: Intent=HOTEL, extract params
+↓
+Hotel Agent: Search hotels, generate results  
+↓
+Response Agent: Format and present results
+```
+
+**3. Combined Search Workflow**:
+```
+User: "Plan a trip to Paris - flights and hotels"
+↓
+Coordinator: Intent=COMBINED, extract both params
+↓ (parallel or sequential)
+Flight Agent → Hotel Agent → Response Agent
+```
+
+**4. Refinement Workflow**:
+```
+User: "Show me cheaper options" 
+↓
+Coordinator: Intent=REFINE, modify existing params
+↓
+Relevant Agent: Re-search with updated criteria
+↓
+Response Agent: Present refined results
+```
+
+## ⚡ Double-Texting / Request Interruption
+
+### Technical Approach to Request Interruption
+
+Our system implements robust interruption handling to support "double-texting" - when users send new requests while previous ones are still processing.
+
+#### 1. Detection Mechanism
+
+**Active Run Registry**:
+```python
+# In main.py - Tracks active processing
+active_runs: Dict[str, ActiveRun] = {}
+active_tasks: Dict[str, asyncio.Task] = {}
+
+class ActiveRun(BaseModel):
+    run_id: str
+    agent_type: AgentType  
+    started_at: float
+    session_id: str
+```
+
+**Interruption Detection Flow**:
+```
+New User Message Received
+↓
+Check session_id in active_runs
+↓
+If found → Interruption detected
+↓
+Mark session state as is_interrupted = True
+↓  
+Cancel existing asyncio task
+↓
+Create new run with fresh request_id
+```
+
+#### 2. Graceful Cancellation Implementation
+
+**Asyncio Task Cancellation**:
+```python
+# Cancel existing task with timeout
+if session_id in active_tasks:
+    existing_task = active_tasks[session_id]
+    existing_task.cancel()
+    
+    # Wait for cancellation with timeout
+    try:
+        await asyncio.wait_for(existing_task, timeout=2.0)
+    except asyncio.CancelledError:
+        print("Previous task cancelled successfully")
+    except asyncio.TimeoutError:
+        print("Timeout waiting for task cancellation")
+```
+
+**State Preservation During Cancellation**:
+```python
+# Clear results but preserve selections
+session.shared_state.is_interrupted = True
+session.shared_state.flight_results = []  # Clear search results
+session.shared_state.hotel_results = []   # Clear search results
+# PRESERVE: selected_flight_id, selected_hotel_id, pending bookings
+```
+
+#### 3. Partial Results Preservation Strategy
+
+**Result Flagging System**:
+- All search results include `is_partial: bool` flag
+- Partial results displayed with visual indicators (amber "PARTIAL" badge)
+- Context includes which results are from interrupted runs
+
+**Context Transfer Mechanism**:
+```python
+def preserve_context_during_interruption(session):
+    # What gets preserved:
+    preserved_state = {
+        'selected_flight_id': session.selected_flight_id,
+        'selected_hotel_id': session.selected_hotel_id,
+        'pending_flight_booking': session.pending_flight_booking,
+        'pending_hotel_booking': session.pending_hotel_booking,
+        'conversation_history': session.conversation_history,
+        'user_preferences': session.user_preferences
+    }
+    
+    # What gets cleared:
+    cleared_state = {
+        'flight_results': [],    # Fresh search needed
+        'hotel_results': [],     # Fresh search needed  
+        'flight_params': None,   # Extract new from user input
+        'hotel_params': None     # Extract new from user input
+    }
+```
+
+#### 4. Libraries and Technologies Used
+
+**Core Interruption Libraries**:
+- **`asyncio`**: Async task management and cancellation
+- **`asyncio.wait_for()`**: Timeout handling for graceful shutdown
+- **`FastAPI`**: Background task coordination
+- **`LangGraph`**: State persistence across agent boundaries
+
+**Implementation Details**:
+- **Task Registry**: Dictionary mapping session_id → asyncio.Task
+- **Run Tracking**: Unique request_id for each user request
+- **State Synchronization**: WebSocket real-time updates during interruption
+- **Timeout Handling**: 2-second timeout for task cancellation
+
+#### 5. User Experience During Interruption
+
+**Visual Feedback**:
+- Status badge: "⚠️ Interrupted - Updating..."
+- Loading skeleton continues with interruption indicator
+- Partial results grayed out with warning styling
+
+**Seamless Continuation**:
+- User selections preserved across interruptions
+- Conversation history maintained
+- Preferences learned over time persist
+- New search starts fresh but context-aware
 
 ### Frontend Architecture
 ```
@@ -194,6 +498,140 @@ Agent: [Shows hotels with amenities, pricing, and location maps]
 - Click the preferences icon in the input box
 - Set budget ranges, preferred airlines, amenities
 - Preferences persist across the session
+
+## 🎮 Demo Instructions
+
+### Sample Queries for Flight Search
+
+**Basic Flight Search**:
+```
+"I need a flight from New York to Los Angeles"
+"Find flights to Paris next weekend"
+"Show me flights from JFK to LAX"
+```
+
+**Advanced Flight Search**:
+```
+"I need a round-trip flight from New York to Paris with a layover in London"
+"Find me business class flights to Tokyo for 2 passengers"
+"Look for direct flights to Miami under $400"
+```
+
+**Multi-Leg Flight Example**:
+```
+"Book a trip from New York to Paris to London and back to New York"
+"Plan a multi-city European tour: NYC → London → Paris → NYC"
+```
+
+### Sample Queries for Hotel Search
+
+**Basic Hotel Search**:
+```
+"Find hotels in Tokyo"
+"Show me hotels in Paris for next week"
+"Hotels in London near the Tower Bridge"
+```
+
+**Advanced Hotel Search**:
+```
+"Find a 5-star hotel in Tokyo with a pool and spa"
+"Looking for budget hotels in Miami under $150 per night"
+"Hotels in Paris with WiFi and breakfast included"
+```
+
+### Interruption Scenarios Testing
+
+**Test Case 1: Flight Search Interruption**
+1. Send: "Find flights to London" (wait 3-5 seconds)
+2. While processing, send: "Actually, show me hotels in Paris instead"
+3. **Expected**: Flight search cancels, hotel search starts
+4. **Verify**: Previous results cleared, new hotel results displayed
+
+**Test Case 2: Double-Texting During Results**
+1. Search for flights: "Flights to Los Angeles"
+2. When results appear, immediately send: "Now find hotels in LA"
+3. **Expected**: Seamless transition, results updated appropriately
+4. **Verify**: No conflicting displays or partial results
+
+**Test Case 3: Partial Selection Preservation**
+1. Search flights: "Flights to Paris"
+2. Click "Select" on a flight option
+3. While waiting to book, send: "Actually show me cheaper flights"
+4. **Expected**: Previous selection preserved, new search in background
+5. **Verify**: Selected flight still shows as chosen, new results available
+
+**Test Case 4: Context Transfer**
+1. Search: "Hotels in Tokyo" 
+2. Set preference: "I prefer hotels with pools"
+3. Send: "Now find flights to Tokyo"
+4. **Expected**: Hotel search should include pool preference
+5. **Verify**: Preferences learned and applied to new searches
+
+### Common User Flows to Reproduce
+
+#### Flow 1: Complete Flight Booking
+1. Start: "I need a flight to London"
+2. Review results with maps and price charts
+3. Click "Book Now" on preferred flight
+4. Complete passenger information form
+5. Select seat from seat map
+6. Enter payment details (mock)
+7. **Result**: Download HTML itinerary, confirmation message
+
+#### Flow 2: Combined Flight + Hotel Search
+1. Start: "Plan a trip to Tokyo for next month"
+2. Review flight options with multi-leg support
+3. Review hotel options with amenities and maps
+4. Select flight: "I'll take the United Airlines flight"
+5. Select hotel: "Book the Hilton Tokyo Bay"
+6. **Result**: Both selections processed, individual booking flows
+
+#### Flow 3: Preference Learning
+1. Search: "Flights to Paris" 
+2. User says: "I prefer morning flights and business class"
+3. Search: "Hotels in London" 
+4. User says: "I need WiFi and prefer luxury hotels"
+5. Search: "Flights to London" (new request)
+6. **Verify**: Preferences automatically applied to search parameters
+
+#### Flow 4: Interruption Recovery
+1. Start long search: "Find multi-leg flights around Europe"
+2. Send interruption: "Wait, show me hotels in Paris instead"
+3. Complete hotel search and make selection
+4. Send: "Now continue with the Europe flights from Paris"
+5. **Verify**: System remembers Paris as starting point, previous context preserved
+
+### Testing Checklist
+
+**Core Functionality**:
+- [ ] Basic flight search returns results
+- [ ] Basic hotel search returns results  
+- [ ] WebSocket connection establishes successfully
+- [ ] Real-time status updates during processing
+- [ ] Result selection works (flights and hotels)
+- [ ] Booking modal opens with correct data
+- [ ] Dark/light theme switching works
+
+**Advanced Features**:
+- [ ] Multi-leg flights display segments correctly
+- [ ] Flight maps show route visualization
+- [ ] Hotel maps display location markers
+- [ ] Price charts render correctly
+- [ ] Preferences panel shows learned preferences
+- [ ] Conversation history maintained
+
+**Interruption Handling**:
+- [ ] New requests cancel previous processing
+- [ ] Partial results show appropriate indicators
+- [ ] User selections preserved across interruptions
+- [ ] Context transfers correctly between agents
+- [ ] Status messages clearly indicate interruption state
+
+**Error Handling**:
+- [ ] Graceful handling of API failures
+- [ ] Fallback to mock data when web search unavailable
+- [ ] WebSocket disconnection recovery
+- [ ] Invalid input handling with helpful messages
 
 ## 🛠️ Tech Stack
 

@@ -1,0 +1,16 @@
+{
+    "rewrites": [
+        {
+            "source": "/chat/:match*",
+            "destination": "https://YOUR_BACKEND_URL/chat/:match*"
+        },
+        {
+            "source": "/ws/:match*",
+            "destination": "https://YOUR_BACKEND_URL/ws/:match*"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
+}

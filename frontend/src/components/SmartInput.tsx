@@ -45,6 +45,82 @@ export function SmartInput({ onSend, disabled }: SmartInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { theme } = useTheme();
 
+  // Voice Input Logic (Server-Side Transcription)
+  const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+        // Stop all tracks immediately
+        stream.getTracks().forEach(track => track.stop());
+
+        // Reset listening state immediately so UI updates
+        setIsListening(false);
+        setIsProcessing(true);
+
+        try {
+          const formData = new FormData();
+          formData.append('file', audioBlob, 'recording.webm');
+
+          const response = await fetch('http://127.0.0.1:8000/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) throw new Error('Transcription failed');
+
+          const data = await response.json();
+          if (data.text) {
+            setInput(data.text);
+            // Auto-submit if it's a clear command? Maybe not, let user review.
+          }
+        } catch (error) {
+          console.error('Error transcribing audio:', error);
+          alert('Failed to transcribe audio. Please try again.');
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsListening(true);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Could not access microphone. Please check permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isListening) {
+      mediaRecorderRef.current.stop();
+      // isListening set to false in onstop
+    }
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (input.trim() && !disabled) {
@@ -57,7 +133,7 @@ export function SmartInput({ onSend, disabled }: SmartInputProps) {
 
   const handleInputChange = (value: string) => {
     setInput(value);
-    
+
     // Auto-complete logic
     if (value.length >= 2) {
       const filtered = POPULAR_DESTINATIONS.filter(dest =>
@@ -65,7 +141,7 @@ export function SmartInput({ onSend, disabled }: SmartInputProps) {
         dest.code.toLowerCase().includes(value.toLowerCase()) ||
         dest.country.toLowerCase().includes(value.toLowerCase())
       ).slice(0, 5);
-      
+
       setSuggestions(filtered);
       setShowSuggestions(filtered.length > 0);
       setSelectedIndex(-1);
@@ -79,7 +155,7 @@ export function SmartInput({ onSend, disabled }: SmartInputProps) {
     // Smart insertion - if input has "to" or "in", append the city name
     const lowerInput = input.toLowerCase();
     let newInput = '';
-    
+
     if (lowerInput.includes(' to ') || lowerInput.includes(' in ')) {
       // Replace the partial word with the full destination
       const words = input.split(' ');
@@ -90,7 +166,7 @@ export function SmartInput({ onSend, disabled }: SmartInputProps) {
     } else {
       newInput = `Flights to ${destination.name}`;
     }
-    
+
     setInput(newInput);
     setShowSuggestions(false);
     inputRef.current?.focus();
@@ -191,12 +267,13 @@ export function SmartInput({ onSend, disabled }: SmartInputProps) {
               value={input}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about flights, hotels, or travel plans..."
-              disabled={disabled}
+              placeholder={isListening ? "Listening..." : (isProcessing ? "Processing audio..." : "Ask about flights, hotels, or travel plans...")}
+              disabled={disabled || isProcessing}
               style={{
                 width: '100%',
                 padding: '14px 20px',
-                border: `2px solid ${theme === 'dark' ? '#334155' : '#f1f5f9'}`,
+                paddingRight: '50px', // Make room for mic button
+                border: `2px solid ${isListening ? '#ef4444' : (theme === 'dark' ? '#334155' : '#f1f5f9')}`,
                 borderRadius: '24px',
                 fontSize: '15px',
                 outline: 'none',
@@ -205,16 +282,60 @@ export function SmartInput({ onSend, disabled }: SmartInputProps) {
                 color: theme === 'dark' ? '#f1f5f9' : '#1e293b'
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = '#3b82f6';
-                e.target.style.backgroundColor = theme === 'dark' ? '#0f172a' : 'white';
-                e.target.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.1)';
+                if (!isListening) {
+                  e.target.style.borderColor = '#3b82f6';
+                  e.target.style.backgroundColor = theme === 'dark' ? '#0f172a' : 'white';
+                  e.target.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.1)';
+                }
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = theme === 'dark' ? '#334155' : '#f1f5f9';
-                e.target.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f8fafc';
-                e.target.style.boxShadow = 'none';
+                if (!isListening) {
+                  e.target.style.borderColor = theme === 'dark' ? '#334155' : '#f1f5f9';
+                  e.target.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f8fafc';
+                  e.target.style.boxShadow = 'none';
+                }
               }}
             />
+
+            {/* Microphone Button inside Input */}
+            <button
+              type="button"
+              onClick={toggleListening}
+              style={{
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: isListening ? '#ef4444' : (theme === 'dark' ? '#94a3b8' : '#64748b'),
+                padding: '8px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s'
+              }}
+              title="Voice Input"
+            >
+              {isListening ? (
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: '#ef4444',
+                  borderRadius: '2px',
+                  animation: 'pulse 1s infinite'
+                }} />
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="23"></line>
+                  <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+              )}
+            </button>
 
             {/* Auto-complete Suggestions */}
             {showSuggestions && suggestions.length > 0 && (

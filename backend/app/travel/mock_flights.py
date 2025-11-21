@@ -99,31 +99,57 @@ def generate_flight_number(airline: str, seed: int) -> str:
     return f"{prefix}{number}"
 
 
+import math
+
+def calculate_distance(origin: str, destination: str) -> float:
+    """Calculate distance in km between two airports using Haversine formula."""
+    # Get coordinates or default to approximate US center
+    coord1 = AIRPORT_COORDINATES.get(origin, [39.8, -98.6])
+    coord2 = AIRPORT_COORDINATES.get(destination, [39.8, -98.6])
+    
+    lat1, lon1 = coord1
+    lat2, lon2 = coord2
+    
+    R = 6371  # Earth radius in km
+    
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) * math.sin(dlat / 2) +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(dlon / 2) * math.sin(dlon / 2))
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    d = R * c
+    
+    return d
+
 def calculate_duration(origin: str, destination: str) -> int:
     """Calculate approximate flight duration in minutes based on distance."""
-    # Simplified duration calculation (rough estimates)
-    origin_lat = hash(origin) % 90
-    origin_lon = hash(origin) % 180
-    dest_lat = hash(destination) % 90
-    dest_lon = hash(destination) % 180
+    distance = calculate_distance(origin, destination)
     
-    distance = ((dest_lat - origin_lat) ** 2 + (dest_lon - origin_lon) ** 2) ** 0.5
+    # Average speed ~800 km/h + 30 min taxi/takeoff/landing
+    duration = int((distance / 800) * 60 + 30)
     
-    # Base duration: 60-600 minutes depending on distance
-    duration = int(60 + (distance * 5))
-    return min(duration, 600)  # Cap at 10 hours
-
+    return duration
 
 def calculate_base_price(duration_minutes: int, stops: int) -> float:
     """Calculate base price based on duration and stops."""
-    # Base formula: $0.50 per minute + stop penalty
-    base = duration_minutes * 0.50
-    stop_penalty = stops * 50
+    # Base formula: $0.15 per minute + base fee
+    # Short flights are more expensive per minute
+    base_fare = 50
+    minute_rate = 0.8 if duration_minutes < 120 else 0.5
     
+    price = base_fare + (duration_minutes * minute_rate)
+    
+    # Stops usually make it cheaper (unless it's a hack)
+    # But for this mock, let's say stops add a small tax but the overall fare might be lower due to routing
+    # Let's just make it simple:
+    if stops > 0:
+        price *= 0.85  # 15% cheaper for connecting flights
+        
     # Add randomization
-    variance = random.uniform(0.8, 1.2)
+    variance = random.uniform(0.9, 1.3)
     
-    return round((base + stop_penalty) * variance, 2)
+    return round(price * variance, 2)
 
 
 def generate_multi_leg_flight(
@@ -261,8 +287,29 @@ def search_flights(params: Optional[FlightSearchParams] = None) -> List[FlightRe
         # Random airline
         airline = random.choice(AIRLINES)
         
-        # Random number of stops (weighted toward non-stop)
-        stops = random.choices([0, 1, 2], weights=[60, 30, 10])[0]
+        # Force a mix of stops to ensure variety
+        # i % 3 == 0 -> Direct (0 stops)
+        # i % 3 == 1 -> 1 Stop
+        # i % 3 == 2 -> 2 Stops
+        if i == 0:
+            stops = 1 # Force first flight to have 1 stop for debugging
+        elif i % 3 == 0:
+            stops = 0
+        elif i % 3 == 1:
+            stops = 1
+        else:
+            stops = 2
+            
+        print(f"[Flight Search] Flight {i}: Initial stops={stops}")
+
+        # Override if max_stops is set and lower than generated
+        if params.max_stops is not None and stops > params.max_stops:
+             print(f"[Flight Search] Flight {i}: Reducing stops from {stops} to max {params.max_stops}")
+             stops = random.randint(0, params.max_stops)
+        
+        print(f"[Flight Search] Flight {i}: Final stops={stops}")
+        
+        # Random departure time (spread throughout the day)
         
         # Random departure time (spread throughout the day)
         # Add index to ensure different times for each flight

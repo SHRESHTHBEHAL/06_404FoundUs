@@ -116,6 +116,27 @@ async def coordinator_node(state: SharedState) -> SharedState:
         state.flight_params = apply_preferences_to_flight_params(state.flight_params, state.user_preferences)
     if state.hotel_params:
         state.hotel_params = apply_preferences_to_hotel_params(state.hotel_params, state.user_preferences)
+
+    # Clear stale results based on intent to prevent "ghost" results
+    # BUT preserve selected/pending items so we don't lose context
+    if state.current_intent == Intent.FLIGHT:
+        print("[Coordinator] Intent is FLIGHT, clearing hotel results (keeping selection if any)")
+        # Only clear the list of results to clean up UI
+        # But keep the selected_hotel_id so we remember what they picked
+        state.hotel_results = [] 
+        # Do NOT clear selected_hotel_id or pending_hotel_booking
+        
+    elif state.current_intent == Intent.HOTEL:
+        print("[Coordinator] Intent is HOTEL, clearing flight results (keeping selection if any)")
+        state.flight_results = []
+        # Do NOT clear selected_flight_id or pending_flight_booking
+        
+    elif state.current_intent == Intent.COMBINED:
+        print("[Coordinator] Intent is COMBINED, clearing all previous results")
+        # For combined, we usually start fresh, but maybe we should keep selections?
+        # Let's keep selections just in case
+        state.flight_results = []
+        state.hotel_results = []
     
     # Handle selected items (for booking/selection)
     if "selected_item" in intent_result and intent_result["selected_item"]:
@@ -140,17 +161,47 @@ async def coordinator_node(state: SharedState) -> SharedState:
                     state.selected_flight_id = state.pending_flight_booking
                     print(f"[Coordinator] User re-selected pending flight (treating as confirmation): {state.pending_flight_booking}")
                     state.pending_flight_booking = None  # Clear pending
+                    
+                    # Find and store the full flight object
+                    if state.flight_results:
+                        for flight in state.flight_results:
+                            if (state.selected_flight_id.lower() in flight.airline.lower() or 
+                                state.selected_flight_id.lower() in (flight.flight_number or "").lower() or
+                                str(flight.price) in state.selected_flight_id):
+                                state.selected_flight = flight
+                                print(f"[Coordinator] Stored full flight object: {flight.airline} {flight.flight_number}")
+                                break
                 else:
                     # User is making a new selection - mark as pending booking
                     state.selected_flight_id = identifier
                     state.pending_flight_booking = identifier
                     print(f"[Coordinator] User selecting flight: {identifier} (pending confirmation)")
+                    
+                    # Find and store the full flight object
+                    if state.flight_results:
+                        for flight in state.flight_results:
+                            if (identifier.lower() in flight.airline.lower() or 
+                                identifier.lower() in (flight.flight_number or "").lower() or
+                                str(flight.price) in identifier):
+                                state.selected_flight = flight
+                                print(f"[Coordinator] Stored full flight object: {flight.airline} {flight.flight_number}")
+                                break
             elif action == "book" or identifier == "confirmed":
                 # User is confirming - complete the booking
                 if state.pending_flight_booking:
                     state.selected_flight_id = state.pending_flight_booking
                     print(f"[Coordinator] User confirmed flight booking: {state.pending_flight_booking}")
                     state.pending_flight_booking = None  # Clear pending
+                    
+                    # Find and store the full flight object if not already stored
+                    if state.flight_results and not state.selected_flight:
+                        for flight in state.flight_results:
+                            if (state.selected_flight_id.lower() in flight.airline.lower() or 
+                                state.selected_flight_id.lower() in (flight.flight_number or "").lower() or
+                                str(flight.price) in state.selected_flight_id):
+                                state.selected_flight = flight
+                                print(f"[Coordinator] Stored full flight object: {flight.airline} {flight.flight_number}")
+                                break
                 else:
                     print(f"[Coordinator] User confirming booking (no pending flight)")
         elif selected.get("type") == "hotel":
@@ -232,6 +283,13 @@ async def flight_agent_node(state: SharedState) -> SharedState:
             destination="LAX",
             passengers=1
         )
+        
+    # Smart default for origin if missing
+    if not state.flight_params.origin:
+        if state.flight_params.destination and state.flight_params.destination.upper() == "JFK":
+             state.flight_params.origin = "LHR" # Default to London if going to NYC
+        else:
+             state.flight_params.origin = "JFK" # Default to NYC otherwise
     
     # Only search for NEW flights if we don't have results already
     # or if the search parameters have changed significantly
@@ -264,7 +322,8 @@ async def flight_agent_node(state: SharedState) -> SharedState:
             depart_date=flight_params.depart_date,
             return_date=flight_params.return_date,
             passengers=flight_params.passengers or 1,
-            cabin_class=flight_params.cabin_class or "economy"
+            cabin_class=flight_params.cabin_class or "economy",
+            max_stops=flight_params.max_stops
         )
         
         if state.session_id:
@@ -444,28 +503,39 @@ async def response_node(state: SharedState) -> SharedState:
         context_info["action"] = "book"
         context_info["selected_hotel"] = state.selected_hotel_id
     
-    # If user selected a flight, verify it exists in current results
-    if state.selected_flight_id and state.flight_results:
-        selected_identifier = state.selected_flight_id.lower()
-        # Check if the selection matches any available flight
-        matching_flights = [
-            f for f in state.flight_results 
-            if (selected_identifier in f.airline.lower() or 
-                selected_identifier in f.flight_number.lower() if f.flight_number else False or
-                str(f.price) in selected_identifier)
-        ]
-        context_info["matching_flights"] = [f.dict() for f in matching_flights] if matching_flights else None
+    # If user selected a flight, provide the details
+    # First check if we have the stored object (even if results are cleared)
+    if state.selected_flight_id:
+        if state.selected_flight:
+            # Use the stored object
+            context_info["matching_flights"] = [state.selected_flight.dict()]
+            print(f"[Response] Using stored flight object: {state.selected_flight.airline}")
+        elif state.flight_results:
+            # Fall back to searching in current results
+            selected_identifier = state.selected_flight_id.lower()
+            matching_flights = [
+                f for f in state.flight_results 
+                if (selected_identifier in f.airline.lower() or 
+                    selected_identifier in f.flight_number.lower() if f.flight_number else False or
+                    str(f.price) in selected_identifier)
+            ]
+            context_info["matching_flights"] = [f.dict() for f in matching_flights] if matching_flights else None
     
-    # If user selected a hotel, verify it exists in current results
-    if state.selected_hotel_id and state.hotel_results:
-        selected_identifier = state.selected_hotel_id.lower()
-        # Check if the selection matches any available hotel
-        matching_hotels = [
-            h for h in state.hotel_results 
-            if (selected_identifier in h.name.lower() or 
-                str(h.price_per_night) in selected_identifier)
-        ]
-        context_info["matching_hotels"] = [h.dict() for h in matching_hotels] if matching_hotels else None
+    # If user selected a hotel, provide the details
+    if state.selected_hotel_id:
+        if state.selected_hotel:
+            # Use the stored object
+            context_info["matching_hotels"] = [state.selected_hotel.dict()]
+            print(f"[Response] Using stored hotel object: {state.selected_hotel.name}")
+        elif state.hotel_results:
+            # Fall back to searching in current results
+            selected_identifier = state.selected_hotel_id.lower()
+            matching_hotels = [
+                h for h in state.hotel_results 
+                if (selected_identifier in h.name.lower() or 
+                    str(h.price_per_night) in selected_identifier)
+            ]
+            context_info["matching_hotels"] = [h.dict() for h in matching_hotels] if matching_hotels else None
     
     # Generate response using Gemini (Streaming)
     from ..llm import generate_response_stream

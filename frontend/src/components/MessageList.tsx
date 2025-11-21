@@ -130,6 +130,34 @@ export function MessageList({ messages, flightResults, hotelResults, status, onS
             transition: 'all 0.3s ease'
           }}>
             {msg.text}
+
+            {/* TTS Button */}
+            {msg.sender === 'assistant' && (
+              <button
+                onClick={() => {
+                  const utterance = new SpeechSynthesisUtterance(msg.text);
+                  window.speechSynthesis.cancel(); // Stop previous
+                  window.speechSynthesis.speak(utterance);
+                }}
+                style={{
+                  display: 'block',
+                  marginTop: '8px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  padding: '4px',
+                  opacity: 0.6,
+                  transition: 'opacity 0.2s',
+                  color: theme === 'dark' ? '#94a3b8' : '#64748b'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+                title="Read aloud"
+              >
+                🔊
+              </button>
+            )}
           </div>
         </div>
       ))}
@@ -302,7 +330,7 @@ export function MessageList({ messages, flightResults, hotelResults, status, onS
                       fontSize: '11px',
                       color: theme === 'dark' ? '#64748b' : '#94a3b8'
                     }}>
-                      {flight.total_journey_duration 
+                      {flight.total_journey_duration
                         ? `${Math.floor(flight.total_journey_duration / 60)}h ${flight.total_journey_duration % 60}m`
                         : `${Math.floor(flight.duration_minutes / 60)}h ${flight.duration_minutes % 60}m`
                       }
@@ -349,13 +377,19 @@ export function MessageList({ messages, flightResults, hotelResults, status, onS
                       fontSize: '11px',
                       color: theme === 'dark' ? '#94a3b8' : '#64748b'
                     }}>{flight.stops === 0 ? 'Direct' : `${flight.stops} Stop(s)`}</div>
-                    {flight.layovers && flight.layovers.length > 0 && (
+                    {flight.stops > 0 && (
                       <div style={{
-                        fontSize: '10px',
-                        color: theme === 'dark' ? '#64748b' : '#94a3b8',
-                        marginTop: '2px'
+                        fontSize: '12px',
+                        color: theme === 'dark' ? '#cbd5e1' : '#475569',
+                        marginTop: '4px',
+                        fontWeight: '500'
                       }}>
-                        via {flight.layovers.map((l: any) => l.city).join(', ')}
+                        {flight.layovers && flight.layovers.length > 0
+                          ? `via ${flight.layovers.map((l: any) => l.city || l.airport_code).join(', ')}`
+                          : (flight.segments && flight.segments.length > 1
+                            ? `via ${flight.segments.slice(0, -1).map((s: any) => s.destination).join(', ')}`
+                            : 'via connection')
+                        }
                       </div>
                     )}
                   </div>
@@ -411,7 +445,7 @@ export function MessageList({ messages, flightResults, hotelResults, status, onS
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px' }}>
                   <button style={{
                     padding: '10px',
                     backgroundColor: theme === 'dark' ? '#334155' : '#f8fafc',
@@ -455,6 +489,34 @@ export function MessageList({ messages, flightResults, hotelResults, status, onS
                     }}
                   >
                     Book Now
+                  </button>
+                  <button style={{
+                    padding: '10px',
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${theme === 'dark' ? '#475569' : '#e2e8f0'}`,
+                    borderRadius: '8px',
+                    color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                    fontSize: '16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '40px'
+                  }}
+                    title="Track Price"
+                    onClick={() => alert(`Price alert set for ${flight.airline} ${flight.flight_number}`)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = theme === 'dark' ? '#334155' : '#f1f5f9';
+                      e.currentTarget.style.color = '#f59e0b';
+                      e.currentTarget.style.borderColor = '#f59e0b';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = theme === 'dark' ? '#94a3b8' : '#64748b';
+                      e.currentTarget.style.borderColor = theme === 'dark' ? '#475569' : '#e2e8f0';
+                    }}
+                  >
+                    🔔
                   </button>
                 </div>
               </div>

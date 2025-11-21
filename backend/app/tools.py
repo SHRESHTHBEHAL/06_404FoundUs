@@ -115,7 +115,8 @@ def lookup_flights(
     depart_date: Optional[str] = None,
     return_date: Optional[str] = None,
     passengers: int = 1,
-    cabin_class: str = "economy"
+    cabin_class: str = "economy",
+    max_stops: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Search for flights using Tavily API with fallback to mock data.
@@ -201,7 +202,8 @@ def lookup_flights(
         depart_date=depart_date,
         return_date=return_date,
         passengers=passengers,
-        cabin_class=cabin_class
+        cabin_class=cabin_class,
+        max_stops=max_stops
     )
     
     mock_results = search_flights(params)
@@ -364,6 +366,15 @@ def _format_tavily_flight_results(
             
             # Extract flight details from content (basic parsing)
             # In production, you'd use more sophisticated NLP or structured data
+            # Extract stops from content
+            stops = 0
+            if "1 stop" in content.lower():
+                stops = 1
+            elif "2 stops" in content.lower():
+                stops = 2
+            elif "non-stop" in content.lower() or "direct" in content.lower():
+                stops = 0
+            
             flight_data = {
                 "id": f"live_flight_{idx}",
                 "airline": airline,
@@ -373,7 +384,7 @@ def _format_tavily_flight_results(
                 "departure_time": depart_dt.isoformat(),
                 "arrival_time": arrival_dt.isoformat(),
                 "duration_minutes": duration,
-                "stops": 0,
+                "stops": stops,
                 "price": _extract_price(content),
                 "currency": "USD",
                 "cabin_class": cabin_class,

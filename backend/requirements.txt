@@ -17,3 +17,4 @@ google-generativeai
 
 # WebSocket support (included in uvicorn[standard] but explicit for clarity)
 websockets
+python-multipart

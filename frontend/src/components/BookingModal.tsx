@@ -63,7 +63,7 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
 
     const handleDownloadItinerary = () => {
         if (!itineraryHtml) return;
-        
+
         const blob = new Blob([itineraryHtml], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -213,13 +213,85 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
 
                 {/* Content */}
                 <div style={{ padding: '24px' }}>
+                    {/* Booking Summary */}
+                    {(flight || hotel) && (
+                        <div style={{
+                            marginBottom: '24px',
+                            padding: '16px',
+                            backgroundColor: theme === 'dark' ? '#0f172a' : '#f8fafc',
+                            borderRadius: '12px',
+                            border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`
+                        }}>
+                            {flight && (
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '18px' }}>✈️</span>
+                                            <span style={{ fontWeight: '700', fontSize: '16px', color: theme === 'dark' ? '#f1f5f9' : '#0f172a' }}>
+                                                {flight.origin} → {flight.destination}
+                                            </span>
+                                        </div>
+                                        <span style={{ fontWeight: '700', color: '#2563eb', fontSize: '18px' }}>${flight.price}</span>
+                                    </div>
+                                    <div style={{ fontSize: '13px', color: theme === 'dark' ? '#94a3b8' : '#64748b', marginBottom: '8px', display: 'flex', gap: '12px' }}>
+                                        <span>📅 {new Date(flight.departure_time).toLocaleDateString()}</span>
+                                        <span>🕒 {new Date(flight.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        <span>🏢 {flight.airline}</span>
+                                    </div>
+                                    {flight.stops > 0 && (
+                                        <div style={{
+                                            fontSize: '12px',
+                                            color: '#b45309',
+                                            backgroundColor: '#fffbeb',
+                                            padding: '8px',
+                                            borderRadius: '6px',
+                                            marginTop: '8px'
+                                        }}>
+                                            <strong>{flight.stops} Stop{flight.stops > 1 ? 's' : ''}</strong>
+                                            {flight.layovers && flight.layovers.length > 0 && (
+                                                <span style={{ marginLeft: '4px' }}>
+                                                    via {flight.layovers.map((l: any) => l.city).join(', ')}
+                                                </span>
+                                            )}
+                                            {flight.segments && (
+                                                <div style={{ marginTop: '4px', paddingLeft: '8px', borderLeft: '2px solid #fcd34d' }}>
+                                                    {flight.segments.map((s: any, i: number) => (
+                                                        <div key={i} style={{ marginTop: '2px' }}>
+                                                            {i + 1}. {s.origin} → {s.destination} ({Math.floor(s.duration_minutes / 60)}h {s.duration_minutes % 60}m)
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {hotel && (
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '18px' }}>🏨</span>
+                                            <span style={{ fontWeight: '700', fontSize: '16px', color: theme === 'dark' ? '#f1f5f9' : '#0f172a' }}>
+                                                {hotel.name}
+                                            </span>
+                                        </div>
+                                        <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '18px' }}>${hotel.price_per_night}<span style={{ fontSize: '12px', color: theme === 'dark' ? '#94a3b8' : '#64748b' }}>/night</span></span>
+                                    </div>
+                                    <div style={{ fontSize: '13px', color: theme === 'dark' ? '#94a3b8' : '#64748b' }}>
+                                        📍 {hotel.city} • ⭐ {hotel.star_rating} Stars
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {step === 'passenger' && (
                         <form onSubmit={handlePassengerSubmit}>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>First Name</label>
@@ -228,10 +300,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={passengerInfo.first_name}
                                     onChange={(e) => setPassengerInfo({ ...passengerInfo, first_name: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -239,10 +311,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Last Name</label>
@@ -251,10 +323,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={passengerInfo.last_name}
                                     onChange={(e) => setPassengerInfo({ ...passengerInfo, last_name: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -262,10 +334,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Email</label>
@@ -274,10 +346,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={passengerInfo.email}
                                     onChange={(e) => setPassengerInfo({ ...passengerInfo, email: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -285,10 +357,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 />
                             </div>
                             <div style={{ marginBottom: '24px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Phone</label>
@@ -297,10 +369,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={passengerInfo.phone}
                                     onChange={(e) => setPassengerInfo({ ...passengerInfo, phone: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -324,10 +396,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                     {step === 'guest' && (
                         <form onSubmit={handleGuestSubmit}>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>First Name</label>
@@ -336,10 +408,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={guestInfo.first_name}
                                     onChange={(e) => setGuestInfo({ ...guestInfo, first_name: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -347,10 +419,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Last Name</label>
@@ -359,10 +431,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={guestInfo.last_name}
                                     onChange={(e) => setGuestInfo({ ...guestInfo, last_name: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -370,10 +442,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Email</label>
@@ -382,10 +454,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={guestInfo.email}
                                     onChange={(e) => setGuestInfo({ ...guestInfo, email: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -393,10 +465,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Phone</label>
@@ -405,10 +477,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={guestInfo.phone}
                                     onChange={(e) => setGuestInfo({ ...guestInfo, phone: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -417,10 +489,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                                 <div>
-                                    <label style={{ 
-                                        display: 'block', 
-                                        marginBottom: '4px', 
-                                        fontSize: '14px', 
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '4px',
+                                        fontSize: '14px',
                                         fontWeight: '600',
                                         color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                     }}>Check-in Date</label>
@@ -429,10 +501,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                         required
                                         value={guestInfo.check_in}
                                         onChange={(e) => setGuestInfo({ ...guestInfo, check_in: e.target.value })}
-                                        style={{ 
-                                            width: '100%', 
-                                            padding: '10px', 
-                                            borderRadius: '8px', 
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '8px',
                                             border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                             backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                             color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -440,10 +512,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ 
-                                        display: 'block', 
-                                        marginBottom: '4px', 
-                                        fontSize: '14px', 
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '4px',
+                                        fontSize: '14px',
                                         fontWeight: '600',
                                         color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                     }}>Check-out Date</label>
@@ -452,10 +524,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                         required
                                         value={guestInfo.check_out}
                                         onChange={(e) => setGuestInfo({ ...guestInfo, check_out: e.target.value })}
-                                        style={{ 
-                                            width: '100%', 
-                                            padding: '10px', 
-                                            borderRadius: '8px', 
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '8px',
                                             border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                             backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                             color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -464,20 +536,20 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 </div>
                             </div>
                             <div style={{ marginBottom: '24px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Number of Guests</label>
                                 <select
                                     value={guestInfo.guests}
                                     onChange={(e) => setGuestInfo({ ...guestInfo, guests: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -506,9 +578,9 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
 
                     {step === 'room' && (
                         <div>
-                            <p style={{ 
-                                marginBottom: '16px', 
-                                color: theme === 'dark' ? '#94a3b8' : '#64748b' 
+                            <p style={{
+                                marginBottom: '16px',
+                                color: theme === 'dark' ? '#94a3b8' : '#64748b'
                             }}>Select your room type</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                                 {['Standard Room', 'Deluxe Room', 'Suite', 'Executive Suite'].map((room) => (
@@ -517,11 +589,11 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                         onClick={() => handleRoomSelect(room)}
                                         style={{
                                             padding: '16px',
-                                            border: selectedRoom === room 
-                                                ? '2px solid #3b82f6' 
+                                            border: selectedRoom === room
+                                                ? '2px solid #3b82f6'
                                                 : `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                             borderRadius: '8px',
-                                            backgroundColor: selectedRoom === room 
+                                            backgroundColor: selectedRoom === room
                                                 ? (theme === 'dark' ? '#1e3a8a' : '#eff6ff')
                                                 : (theme === 'dark' ? '#0f172a' : 'white'),
                                             cursor: 'pointer',
@@ -561,9 +633,9 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
 
                     {step === 'seat' && (
                         <div>
-                            <p style={{ 
-                                marginBottom: '16px', 
-                                color: theme === 'dark' ? '#94a3b8' : '#64748b' 
+                            <p style={{
+                                marginBottom: '16px',
+                                color: theme === 'dark' ? '#94a3b8' : '#64748b'
                             }}>Select your preferred seat</p>
                             <div style={{
                                 display: 'grid',
@@ -580,20 +652,20 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                         onClick={() => handleSeatSelect(seat.num)}
                                         style={{
                                             padding: '8px',
-                                            border: selectedSeat === seat.num 
-                                                ? '2px solid #3b82f6' 
+                                            border: selectedSeat === seat.num
+                                                ? '2px solid #3b82f6'
                                                 : `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                             borderRadius: '6px',
-                                            backgroundColor: seat.occupied 
+                                            backgroundColor: seat.occupied
                                                 ? (theme === 'dark' ? '#1e293b' : '#f1f5f9')
-                                                : (selectedSeat === seat.num 
-                                                    ? '#eff6ff' 
+                                                : (selectedSeat === seat.num
+                                                    ? '#eff6ff'
                                                     : (theme === 'dark' ? '#0f172a' : 'white')),
                                             cursor: seat.occupied ? 'not-allowed' : 'pointer',
                                             fontSize: '12px',
                                             fontWeight: selectedSeat === seat.num ? '600' : '400',
-                                            color: seat.occupied 
-                                                ? '#94a3b8' 
+                                            color: seat.occupied
+                                                ? '#94a3b8'
                                                 : (theme === 'dark' ? '#f1f5f9' : '#0f172a')
                                         }}
                                     >
@@ -622,10 +694,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                     {step === 'payment' && (
                         <form onSubmit={handlePaymentSubmit}>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Card Number</label>
@@ -635,10 +707,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     placeholder="1234 5678 9012 3456"
                                     value={paymentInfo.card_number}
                                     onChange={(e) => setPaymentInfo({ ...paymentInfo, card_number: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -647,10 +719,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                                 <div>
-                                    <label style={{ 
-                                        display: 'block', 
-                                        marginBottom: '4px', 
-                                        fontSize: '14px', 
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '4px',
+                                        fontSize: '14px',
                                         fontWeight: '600',
                                         color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                     }}>Expiry</label>
@@ -660,10 +732,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                         placeholder="MM/YY"
                                         value={paymentInfo.expiry}
                                         onChange={(e) => setPaymentInfo({ ...paymentInfo, expiry: e.target.value })}
-                                        style={{ 
-                                            width: '100%', 
-                                            padding: '10px', 
-                                            borderRadius: '8px', 
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '8px',
                                             border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                             backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                             color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -671,10 +743,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ 
-                                        display: 'block', 
-                                        marginBottom: '4px', 
-                                        fontSize: '14px', 
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '4px',
+                                        fontSize: '14px',
                                         fontWeight: '600',
                                         color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                     }}>CVV</label>
@@ -684,10 +756,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                         placeholder="123"
                                         value={paymentInfo.cvv}
                                         onChange={(e) => setPaymentInfo({ ...paymentInfo, cvv: e.target.value })}
-                                        style={{ 
-                                            width: '100%', 
-                                            padding: '10px', 
-                                            borderRadius: '8px', 
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '8px',
                                             border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                             backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                             color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -696,10 +768,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 </div>
                             </div>
                             <div style={{ marginBottom: '24px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '4px', 
-                                    fontSize: '14px', 
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '4px',
+                                    fontSize: '14px',
                                     fontWeight: '600',
                                     color: theme === 'dark' ? '#cbd5e1' : '#0f172a'
                                 }}>Cardholder Name</label>
@@ -708,10 +780,10 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     required
                                     value={paymentInfo.name}
                                     onChange={(e) => setPaymentInfo({ ...paymentInfo, name: e.target.value })}
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '10px', 
-                                        borderRadius: '8px', 
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
                                         backgroundColor: theme === 'dark' ? '#0f172a' : 'white',
                                         color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
@@ -735,13 +807,13 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                     )}                    {step === 'confirmation' && (
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '64px', marginBottom: '16px' }}>🎉</div>
-                            <h3 style={{ 
-                                margin: '0 0 8px', 
+                            <h3 style={{
+                                margin: '0 0 8px',
                                 color: '#16a34a'
                             }}>Booking Confirmed!</h3>
-                            <p style={{ 
-                                color: theme === 'dark' ? '#94a3b8' : '#64748b', 
-                                marginBottom: '16px' 
+                            <p style={{
+                                color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                                marginBottom: '16px'
                             }}>Your booking reference is:</p>
                             <div style={{
                                 padding: '16px',
@@ -753,14 +825,14 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                 marginBottom: '24px',
                                 letterSpacing: '2px'
                             }}>{bookingRef}</div>
-                            <p style={{ 
-                                fontSize: '14px', 
-                                color: theme === 'dark' ? '#94a3b8' : '#64748b', 
-                                marginBottom: '24px' 
+                            <p style={{
+                                fontSize: '14px',
+                                color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                                marginBottom: '24px'
                             }}>
                                 A confirmation email has been sent to {passengerInfo.email}
                             </p>
-                            
+
                             <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
                                 <button onClick={handleDownloadItinerary} style={{
                                     flex: 1,
@@ -780,7 +852,7 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     <span>📥</span>
                                     <span>Download Itinerary</span>
                                 </button>
-                                
+
                                 <button onClick={() => {
                                     const printWindow = window.open('', '_blank');
                                     if (printWindow && itineraryHtml) {
@@ -807,7 +879,7 @@ export function BookingModal({ isOpen, onClose, flight, hotel, sessionId, onBook
                                     <span>Print</span>
                                 </button>
                             </div>
-                            
+
                             <button onClick={onClose} style={{
                                 width: '100%',
                                 padding: '12px',

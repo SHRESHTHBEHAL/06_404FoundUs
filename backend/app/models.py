@@ -286,6 +286,8 @@ class SharedState(BaseModel):
     # Selected items (for booking simulation or context transfer)
     selected_flight_id: Optional[str] = None
     selected_hotel_id: Optional[str] = None
+    selected_flight: Optional[FlightResult] = None  # Full object for context retention
+    selected_hotel: Optional[HotelResult] = None  # Full object for context retention
     
     # Pending booking state (waiting for user confirmation)
     pending_flight_booking: Optional[str] = None

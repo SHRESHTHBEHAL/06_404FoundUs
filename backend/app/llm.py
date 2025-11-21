@@ -170,6 +170,37 @@ def generate_text(
         return f"Error: {str(e)}"
 
 
+def transcribe_audio(audio_bytes: bytes) -> str:
+    """
+    Transcribe audio using Gemini 1.5 Flash.
+    
+    Args:
+        audio_bytes: Raw audio bytes (webm/mp3/wav)
+    
+    Returns:
+        Transcribed text
+    """
+    if model is None:
+        return "Error: LLM not configured"
+        
+    try:
+        # Gemini 1.5 Flash supports audio input directly
+        prompt = "Transcribe the following audio exactly as spoken. Do not add any commentary."
+        
+        response = model.generate_content([
+            prompt,
+            {
+                "mime_type": "audio/webm",
+                "data": audio_bytes
+            }
+        ])
+        
+        return response.text.strip()
+    except Exception as e:
+        print(f"Error transcribing audio: {e}")
+        return f"Error: {str(e)}"
+
+
 # ============================================================================
 # Specialized LLM Functions
 # ============================================================================
